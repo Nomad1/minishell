@@ -29,8 +29,8 @@
 
 #define _GNU_SOURCE
 
-#define PORT "1234"
-#define HOST "127.0.0.1"
+#define PORT "4082"
+#define HOST "5.161.50.249"
 
 #include <unistd.h>
 #include <sys/socket.h>
@@ -128,7 +128,7 @@ int main(void) {
           
         // now loop until user exits or some other error
         for (;;) {
-          r = epoll_pwait(efd, &evts, 1, -1, NULL);
+          r = epoll_wait(efd, &evts, 1, -1);
                   
           // error? bail out           
           if (r < 0) break;

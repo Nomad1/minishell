@@ -29,24 +29,7 @@
   
 #include "include.h"
 
-void *get_proc_address(void *module, const char *name);
-
-void *get_proc_address2(void *module, uint32_t hash);      // using base address
-void *get_proc_address3(const char *path, uint32_t hash);  // using file path
-
-void *get_module_handle(const char *module);
-void *get_module_handle1(const char *module);
-void *get_module_handle2(const char *module);
-
-void *get_base(void);
-void *get_base2(void);
-void *get_base3(void);
-
-Elf64_Phdr *elf_get_phdr(void *base, int type);
-Elf64_Dyn *elf_get_dyn(void *base, int tag);
-
-uint32_t gnu_hash(const uint8_t *name);
-
+#ifdef EXT_FUNC
 int compare(const char *s1, const char *s2) {
     while(*s1 && *s2) {
       if(*s1 != *s2) {
@@ -61,69 +44,6 @@ const char* _strstr(const char *s1, const char *s2) {
     while (*s1) {
       if((*s1 == *s2) && compare(s1, s2)) return s1;
       s1++;
-    }
-    return NULL;
-}
-
-// return pointer to program header
-Elf64_Phdr *elf_get_phdr(void *base, int type) {
-    int        i;
-    Elf64_Ehdr *ehdr;
-    Elf64_Phdr *phdr;
-    
-    // sanity check on base and type
-    if(base == NULL || type == PT_NULL) return NULL;
-    
-    // ensure this some semblance of ELF header
-    if(*(uint32_t*)base != 0x464c457fUL) return NULL;
-    
-    // ok get offset to the program headers
-    ehdr=(Elf64_Ehdr*)base;
-    phdr=(Elf64_Phdr*)(base + ehdr->e_phoff);
-    
-    // search through list to find requested type
-    for(i=0; i<ehdr->e_phnum; i++) {
-      // if found
-      if(phdr[i].p_type == type) {
-        // return pointer to it
-        return &phdr[i];
-      }
-    }
-    // return NULL if not found
-    return NULL;
-}
-
-uint64_t elf_get_delta(void *base) {
-    Elf64_Phdr *phdr;
-    uint64_t   low;
-    
-    // get pointer to PT_LOAD header
-    // first should be executable
-    phdr = elf_get_phdr(base, PT_LOAD);
-    
-    if(phdr != NULL) {
-      low = phdr->p_vaddr;
-    }
-    return (uint64_t)base - low;
-}
-
-// return pointer to first dynamic type found
-Elf64_Dyn *elf_get_dyn(void *base, int tag) {
-    Elf64_Phdr *dynamic;
-    Elf64_Dyn  *entry;
-    
-    // 1. obtain pointer to DYNAMIC program header
-    dynamic = elf_get_phdr(base, PT_DYNAMIC);
-
-    if(dynamic != NULL) {
-      entry = (Elf64_Dyn*)(dynamic->p_vaddr + elf_get_delta(base));
-      // 2. obtain pointer to type
-      while(entry->d_tag != DT_NULL) {
-        if(entry->d_tag == tag) {
-          return entry;
-        }
-        entry++;
-      }
     }
     return NULL;
 }
@@ -170,143 +90,7 @@ void *get_base(void) {
     addr = (void*)hex2bin(line);
     return addr;
 }
-
-void *get_module_handle2(const char *module) {
-    Elf64_Phdr      *phdr;
-    Elf64_Dyn       *got;
-    void            *addr=NULL, *base;
-    uint64_t        *ptrs;
-    struct link_map *map;
-    
-    // 1. get the base of host ELF
-    base = get_base();
-    // 2. obtain pointer to dynamic program header
-    phdr = (Elf64_Phdr*)elf_get_phdr(base, PT_DYNAMIC);
-    
-    if(phdr != NULL) {
-      // 3. obtain global offset table
-      got = elf_get_dyn(base, DT_PLTGOT);
-      if(got != NULL) {
-        ptrs = (uint64_t*)got->d_un.d_ptr;
-        map   = (struct link_map *)ptrs[1];
-        // 4. search through link_map for module
-        while (map != NULL) {
-          // 5 if no module provided, return first in the list
-          if(module == NULL) {
-            addr = (void*)map->l_addr;
-            break;
-          // otherwise, check by name
-          } else if(_strstr(map->l_name, module)) {
-            addr = (void*)map->l_addr;
-            break;
-          }
-          map = (struct link_map *)map->l_next;
-        }
-      }
-    }
-    return addr;
-}
-
-uint32_t gnu_hash(const uint8_t *name) {
-    uint32_t h = 5381;
-
-    for(; *name; name++) {
-      h = (h << 5) + h + *name;
-    }
-    return h;
-}
-
-// lookup by hash using the base address of module
-void *get_proc_address2(void *module, uint32_t hash) {
-    char            *path=NULL;
-    Elf64_Phdr      *phdr;
-    Elf64_Dyn       *got;
-    uint64_t        *ptrs, addr, *base;
-    struct link_map *map;
-    
-    if(module == NULL) return NULL;
-    
-    // 1. obtain pointer to dynamic program header
-    base = get_base();
-    phdr = (Elf64_Phdr*)elf_get_phdr(base, PT_DYNAMIC);
-    
-    if(phdr != NULL) {
-      // 2. obtain global offset table
-      got = elf_get_dyn(base, DT_PLTGOT);
-      if(got != NULL) {
-        ptrs = (uint64_t*)got->d_un.d_ptr;
-        map   = (struct link_map *)ptrs[1];
-        // 3. search through link_map for module
-        while (map != NULL) {
-          // this our module?
-          if(map->l_addr == (uint64_t)module) {
-            path = map->l_name;
-            break;
-          }
-          map = (struct link_map *)map->l_next;
-        }
-      }
-    }
-    // not found? exit
-    if(path == NULL) return NULL;
-    addr = (uint64_t)get_proc_address3(path, hash);
-    
-    return (void*)((uint64_t)module + addr); 
-}
-
-// lookup by hash using the path of library (static lookup)
-void* get_proc_address3(const char *path, uint32_t hash) {
-    int         i, fd, cnt=0;
-    Elf64_Ehdr *ehdr;
-    Elf64_Phdr *phdr;
-    Elf64_Shdr *shdr;
-    Elf64_Sym  *syms=0;
-    void       *addr=NULL;
-    char       *strs=0;
-    uint8_t    *map;
-    struct stat fs;
-    int         str[8];
-    
-    // /proc/self/exe
-    str[0] = 0x6f72702f;
-    str[1] = 0x65732f63;
-    str[2] = 0x652f666c;
-    str[3] = 0x00006578;
-
-    // open file
-    fd = _open(path == NULL ? (char*)str : path, O_RDONLY, 0);
-    if(fd == 0) return NULL;
-    // get the size
-    if(_fstat(fd, &fs) == 0) {
-      // map into memory
-      map = (uint8_t*)_mmap(NULL, fs.st_size,  
-        PROT_READ, MAP_PRIVATE, fd, 0);
-      if(map != NULL) {
-        ehdr = (Elf64_Ehdr*)map;
-        shdr = (Elf64_Shdr*)(map + ehdr->e_shoff);
-        // locate static or dynamic symbol table
-        for(i=0; i<ehdr->e_shnum; i++) {
-          if(shdr[i].sh_type == SHT_SYMTAB ||
-             shdr[i].sh_type == SHT_DYNSYM) {
-            strs = (char*)(map + shdr[shdr[i].sh_link].sh_offset);
-            syms = (Elf64_Sym*)(map + shdr[i].sh_offset);
-            cnt  = shdr[i].sh_size/sizeof(Elf64_Sym);
-          }
-        }
-        // loop through string table for function
-        for(i=0; i<cnt; i++) {
-          // if found, save address
-          if(gnu_hash(&strs[syms[i].st_name]) == hash) {
-            addr = (void*)syms[i].st_value;
-          }
-        }
-        _munmap(map, fs.st_size);
-      }
-    }
-    _close(fd);
-    return addr;
-}
-
+#endif
 // following routines pilfered from ryan "elfmaster" o'neill
 // Nomad: signatures modified to match libc
 int _open(const char *pathname, int flags, mode_t mode) {
@@ -317,8 +101,8 @@ int _open(const char *pathname, int flags, mode_t mode) {
         "mov %2, %%rdx\n"
         "mov $2, %%rax\n"
         "syscall" : : "g"(pathname), "g"(flags), "g"(mode));
+
       asm ("mov %%rax, %0" : "=r"(ret));              
-      
       return ret;
 }
 
@@ -329,11 +113,12 @@ int _close(int fd) {
         "mov $3, %%rax\n"
       "syscall" : : "g"(fd));
       
+      asm("mov %%rax, %0" : "=r"(ret));
       return (int)ret;
 }
 
 ssize_t _read(int fd, void *buf, size_t count) {
-     long ret;
+    long ret;
      
     __asm__ volatile(
       "mov %0, %%rdi\n"
@@ -341,12 +126,26 @@ ssize_t _read(int fd, void *buf, size_t count) {
       "mov %2, %%rdx\n"
       "mov $0, %%rax\n"
       "syscall" : : "g"(fd), "g"(buf), "g"(count));
+
     asm("mov %%rax, %0" : "=r"(ret));
-    
     return (ssize_t)ret;
 }
 
-int fstat(int fd, struct stat *buf) {
+ssize_t _write(int fd, const void *buf, size_t count) {
+    long ret;
+     
+    __asm__ volatile(
+      "mov %0, %%rdi\n"
+      "mov %1, %%rsi\n"
+      "mov %2, %%rdx\n"
+      "mov $1, %%rax\n"
+      "syscall" : : "g"(fd), "g"(buf), "g"(count));
+
+    asm("mov %%rax, %0" : "=r"(ret));
+    return (ssize_t)ret;
+}
+
+int _fstat(int fd, struct stat *buf) {
     long ret;
     
     __asm__ volatile(
@@ -354,15 +153,27 @@ int fstat(int fd, struct stat *buf) {
       "mov %1, %%rsi\n"
       "mov $5, %%rax\n"
       "syscall" : : "g"(fd), "g"(buf));
+
     asm("mov %%rax, %0" : "=r"(ret));
     return (int)ret;
 }
 
-void *_mmap(void *addr, unsigned long len, 
-  unsigned long prot, unsigned long flags, 
-  long fd, unsigned long off) {
+int _dup2(int oldfd, int newfd) {
+    long ret;
+    
+    __asm__ volatile(
+      "mov %0, %%rdi\n"
+      "mov %1, %%rsi\n"
+      "mov $33, %%rax\n"
+      "syscall" : : "g"(oldfd), "g"(newfd));
+
+    asm("mov %%rax, %0" : "=r"(ret));
+    return (int)ret;
+}
+
+void *_mmap(void *addr, size_t length, int prot, int flags, int fd, off_t offset) {
     long mmap_fd = fd;
-    unsigned long mmap_off = off;
+    unsigned long mmap_off = offset;
     unsigned long mmap_flags = flags;
     unsigned long ret;
 
@@ -374,49 +185,159 @@ void *_mmap(void *addr, unsigned long len,
      "mov %4, %%r8\n"
      "mov %5, %%r9\n"
      "mov $9, %%rax\n"
-     "syscall\n" : : "g"(addr), "g"(len), "g"(prot), "g"(flags), "g"(mmap_fd), "g"(mmap_off));
+     "syscall\n" : : "g"(addr), "g"(length), "g"(prot), "g"(mmap_flags), "g"(mmap_fd), "g"(mmap_off));
+
     asm ("mov %%rax, %0" : "=r"(ret));              
     return (void *)ret;
 }
 
-int _munmap(void *addr, size_t len) {
+int _munmap(void *addr, size_t length) {
     long ret;
     
     __asm__ volatile(
       "mov %0, %%rdi\n"
       "mov %1, %%rsi\n"
       "mov $11, %%rax\n"
-      "syscall" :: "g"(addr), "g"(len));
+      "syscall" : : "g"(addr), "g"(length));
+
     asm ("mov %%rax, %0" : "=r"(ret));
     return (int)ret;
 }
 
-void init_api(data_t *ds)
-{
-      void               *clib;
-      int                str[8];
+int _kill(pid_t pid, int sig) {
+      long ret;
+      __asm__ volatile(
+        "mov %0, %%rdi\n"
+        "mov %1, %%rsi\n"
+        "mov $62, %%rax\n"
+      "syscall" : : "g"(pid), "g"(sig));
 
-      // 1. resolve the address of _dl_addr in libc.so
-      str[0] = 0x6362696c;
-      str[1] = 0;
-      clib = get_module_handle2((char*)str);
-      
-      // ds.api._dlopen = (dlopen_t)get_proc_address2(clib, 0xf2cb98a2 /* __libc_dlopen_mode */);
-      
-      ds->api._pipe          = get_proc_address2(clib, 0x7c9c4773);
-      ds->api._fork          = get_proc_address2(clib, 0x7c96e577);
-      ds->api._socket        = get_proc_address2(clib, 0x1c31032e);
-      ds->api._htons         = get_proc_address2(clib, 0x0f9a7751);
-      ds->api._connect       = get_proc_address2(clib, 0xd3764dcf);
-      ds->api._dup2          = get_proc_address2(clib, 0x7c95e5c0);
-      ds->api._close         = get_proc_address2(clib, 0x0f3b9a5b);
-      ds->api._execve        = get_proc_address2(clib, 0xfc2c9fc5);
-      ds->api._epoll_create1 = get_proc_address2(clib, 0x5694d925);
-      ds->api._epoll_ctl     = get_proc_address2(clib, 0xa847e103);
-      ds->api._epoll_wait    = get_proc_address2(clib, 0xb14ea835);
-      ds->api._open          = get_proc_address2(clib, 0x7c9bd777);
-      ds->api._write         = get_proc_address2(clib, 0x10a8b550);
-      ds->api._read          = get_proc_address2(clib, 0x7c9d4d41);
-      ds->api._shutdown      = get_proc_address2(clib, 0xfc460361);
-      ds->api._kill          = get_proc_address2(clib, 0x7c998911);
+      asm ("mov %%rax, %0" : "=r"(ret));
+      return (int)ret;
+}
+
+pid_t _fork(void) {
+      long ret;
+      __asm__ volatile(
+        "mov $57, %%rax\n"
+      "syscall" : : );
+
+      asm ("mov %%rax, %0" : "=r"(ret));
+      return (int)ret;
+}
+
+int _pipe(int pipefd[2]) {
+    long ret;
+    
+    __asm__ volatile(
+      "mov %0, %%rdi\n"
+      "mov $22, %%rax\n"
+      "syscall" : : "g"(pipefd));
+
+    asm("mov %%rax, %0" : "=r"(ret));
+    return (int)ret;
+}
+
+// Sockets
+
+int _shutdown(int sockfd, int how) {
+      long ret;
+      __asm__ volatile(
+        "mov %0, %%rdi\n"
+        "mov %1, %%rsi\n"
+        "mov $48, %%rax\n"
+      "syscall" : : "g"(sockfd), "g"(how));
+
+      asm ("mov %%rax, %0" : "=r"(ret));
+      return (int)ret;
+}
+
+int _connect(int sockfd, const struct sockaddr *addr, socklen_t addrlen) {
+      long ret;
+      __asm__ volatile(
+        "mov %0, %%rdi\n"
+        "mov %1, %%rsi\n"
+        "mov %2, %%rdx\n"
+        "mov $42, %%rax\n"
+      "syscall" : : "g"(sockfd), "g"(addr), "g"(addrlen));
+
+      asm ("mov %%rax, %0" : "=r"(ret));
+      return (int)ret;
+}
+
+
+int _socket(int domain, int type, int protocol) {
+      long ret;
+      __asm__ volatile(
+        "mov %0, %%rdi\n"
+        "mov %1, %%rsi\n"
+        "mov %2, %%rdx\n"
+        "mov $41, %%rax\n"
+      "syscall" : : "g"(domain), "g"(type), "g"(protocol));
+
+      asm ("mov %%rax, %0" : "=r"(ret));
+      return (int)ret;
+}
+
+int _execve(const char *pathname, char *const argv[], char *const envp[]) {
+      long ret;
+      __asm__ volatile(
+        "mov %0, %%rdi\n"
+        "mov %1, %%rsi\n"
+        "mov %2, %%rdx\n"
+        "mov $59, %%rax\n"
+      "syscall" : : "g"(pathname), "g"(argv), "g"(envp));
+
+      asm ("mov %%rax, %0" : "=r"(ret));
+      return (int)ret;
+}
+
+
+u_int16_t _htons(u_int16_t x)
+{
+#if BYTE_ORDER == LITTLE_ENDIAN
+	u_char *s = (u_char *) &x;
+	return (u_int16_t)(s[0] << 8 | s[1]);
+#else
+	return x;
+#endif
+}
+
+int _epoll_create1(int flags) {
+      long ret;
+      __asm__ volatile(
+        "mov %0, %%rdi\n"
+        "mov $291, %%rax\n"
+      "syscall" : : "g"(flags));
+
+      asm ("mov %%rax, %0" : "=r"(ret));
+      return (int)ret;
+}
+
+int _epoll_ctl(int epfd, int op, int fd, struct epoll_event *event) {
+      long ret;
+      __asm__ volatile(
+        "mov %0, %%rdi\n"
+        "mov %1, %%rsi\n"
+        "mov %2, %%rdx\n"
+        "mov %3, %%r10\n"
+        "mov $233, %%rax\n"
+      "syscall" : : "g"(epfd), "g"(op), "g"(fd), "g"(event));
+
+      asm ("mov %%rax, %0" : "=r"(ret));
+      return (int)ret;
+}
+
+int _epoll_wait(int epfd, struct epoll_event *events, int maxevents, int timeout) {
+      long ret;
+      __asm__ volatile(
+        "mov %0, %%rdi\n"
+        "mov %1, %%rsi\n"
+        "mov %2, %%rdx\n"
+        "mov %3, %%r10\n"
+        "mov $232, %%rax\n"
+      "syscall" : : "g"(epfd), "g"(events), "g"(maxevents), "g"(timeout));
+
+      asm ("mov %%rax, %0" : "=r"(ret));
+      return (int)ret;
 }

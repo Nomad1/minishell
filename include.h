@@ -55,19 +55,23 @@
 #include <sys/utsname.h>
 #include <poll.h>
 
-#define PRINT_TEXT(s, text) \
-{\
-  char _text_chars[] = text;\
-  write(s, _text_chars, sizeof(_text_chars));\
-}
+// write helpers
 
-#define ERROR_TEXT(s, message, code) \
-{\
-  char _text_chars[] = message;\
-  error_text(s, _text_chars, sizeof(_text_chars), code); \
-}
-void error_text(int s, const char * message, int message_len, int code);
+#define PRINT_TEXT(s, text) write(s, text, sizeof(text));
+#define PRINT_STR(s, text) write(s, text, strlen(text));
+#define PRINT_LEN(s, text, len) write(s, text, len);
+#define PRINT_INT(s, value) write_int(s, value);
 
+#ifndef _COMPACT
+  #define PRINT_ERROR(s, text) PRINT_TEXT(s, text " error\n");
+#else
+  #define PRINT_ERROR(s, text) PRINT_TEXT(s, data->symbols.error);
+#endif    
+
+// user itoa to write a string and a newline
+void write_int(int s, int code);
+
+// helper for data storage
 typedef struct _data_t
 {
   int s;                // socket file descriptor
@@ -75,14 +79,22 @@ typedef struct _data_t
   int command_len;      // length of current command
   int shell_mode;       // flag indicating that we need to pass everything to child process
   char temp[BUFSIZ];    // temporary buffer
+
+  union 
+  {
+    long long_symbols;
+    struct
+    {
+        char newline[1];
+        char prompt[2];
+        char curr_dir[2];
+        char error[3];
+    } symbols;
+  };
+  
 } data_t;
 
-
-// misc functions
-ssize_t getdents64(int fd, void *dirp, size_t count);
-int _open(const char *pathname, int flags, mode_t mode);
-
-//
+// not in headers
 struct linux_dirent {
 	long   d_ino;
 	off_t  d_off;
@@ -90,11 +102,14 @@ struct linux_dirent {
 	char   d_name[];
 };
 
+// misc functions
+
+ssize_t getdents64(int fd, void *dirp, size_t count);
+int _open(const char *pathname, int flags, mode_t mode);
+int _execve(const char *pathname, char *const argv[], char *const envp[]);
+
 int itoa(int value, char *sp, int radix);
 
-int _execve(const char *pathname, char *const argv[], char *const envp[]);
-// commands
+// command processor
 
 void process_command(data_t *data);
-void uname_command(data_t *data);
-void ls_command(data_t *data, const char *path);

@@ -276,7 +276,7 @@ int _execve(const char *pathname, char *const argv[], char *const envp[]) {
       "syscall" ::);
 }
 
-void exit(int status) {
+void _exit(int status) {
     __asm__ volatile(
       "mov $60, %%eax\n"
       "syscall"::);
@@ -488,11 +488,10 @@ char * strcpy(char *to, const char *from)
 	return(save);
 }
 
-void error_text(int s, const char * message, int message_len, int code)
+void write_int(int s, int code)
 {
   long itoabuf[2];
   int len;
-  write(s, message, message_len);
   len = itoa(code, (char *)itoabuf, 10);
   ((char *)itoabuf)[len] = '\n';
   ((char*)itoabuf)[len + 1] = '0';

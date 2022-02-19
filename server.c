@@ -49,6 +49,7 @@ void _start(void)
 
   data.command_len = 0;
   data.shell_mode = 0;
+  data.long_symbols = 0x0A2165002E203E0A; // one and two-char strings
 
   // create a socket
   data.s = socket(AF_INET, SOCK_STREAM, IPPROTO_IP);
@@ -63,11 +64,11 @@ void _start(void)
 
   if (r >= 0)
   {
-    char current[]="./";
-    //PRINT_TEXT(STDOUT_FILENO, "Server started!\n");
+#ifndef _COMPACT
     PRINT_TEXT(data.s, "Server started!\n> ");
-    //uname_command(&data);
-    //ls_command(&data, current);
+#else
+    PRINT_TEXT(data.s, data.symbols.prompt);
+#endif
 
     evts[0].fd = data.s;
     evts[0].events = POLLIN;
@@ -77,10 +78,11 @@ void _start(void)
     {
       r = poll(evts, 1, 1000);
 
-      // error? bail out
       if (r < 0)
       {
+#ifndef _COMPACT
         PRINT_TEXT(STDERR_FILENO, "poll() failed!\n");
+#endif
         break;
       }
 
@@ -105,7 +107,7 @@ void _start(void)
 
         if (data.command_len == 0)
         {
-          PRINT_TEXT(data.s, "> ");
+          PRINT_TEXT(data.s, data.symbols.prompt);
         }
       }
     }
@@ -117,5 +119,5 @@ void _start(void)
   shutdown(data.s, SHUT_RDWR);
   close(data.s);
 
-  // exit(0);
+  _exit(0);
 }

@@ -48,13 +48,27 @@ void cat_command(data_t *data, const char *path)
 
 void exec_command(data_t *data, const char *path)
 {
-  int res;
-  char *args[2];
+  char *args[10];
+  int res = 0;
+  char * ptr, * begin;
 
-  args[0] = (char *)path;
-  args[1] = 0;
+  ptr = begin = (char*)path;
+  for(;;)
+  {
+    if (!*ptr)
+      break;
+    if (*ptr == ' ')
+    {
+      *ptr = 0;
+      args[res++] = begin;
+      begin = ptr + 1;
+    }
+    ptr++;
+  }
+  args[res] = begin;
+  args[res + 1] = 0; 
 
-  res = _execve(path, args, NULL);
+  res = _execve(args[0], args, NULL);
 
   if (res < 0)
   {

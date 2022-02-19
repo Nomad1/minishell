@@ -68,6 +68,8 @@
   #define PRINT_ERROR(s, text) PRINT_TEXT(s, data->symbols.error);
 #endif    
 
+#define IPV4_ADDR(d, c, b, a) (((a & 0xff) << 24) | ((b & 0xff) << 16) | ((c & 0xff) << 8) | (d & 0xff))
+
 // user itoa to write a string and a newline
 void write_int(int s, int code);
 

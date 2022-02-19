@@ -50,40 +50,42 @@
 #include <fcntl.h>
 #include <dlfcn.h>
 #include <sys/mman.h>
+#include <dirent.h>
+#include <sys/stat.h>
+#include <sys/utsname.h>
+#include <poll.h>
 
-// Libc functions implemented as asm syscalls
+#define PRINT_TEXT(s, text) \
+{\
+  char _text_chars[] = text;\
+  write(s, _text_chars, sizeof(_text_chars));\
+}
 
-// files
+typedef struct _data_t
+{
+  int s;                // socket file descriptor
+  char command[BUFSIZ]; // current command
+  int command_len;      // length of current command
+  int shell_mode;       // flag indicating that we need to pass everything to child process
+  char temp[BUFSIZ];    // temporary buffer
+} data_t;
+
+
+// misc functions
+ssize_t getdents64(int fd, void *dirp, size_t count);
 int _open(const char *pathname, int flags, mode_t mode);
-int _close(int fd);
-ssize_t _read(int fd, void *buf, size_t count);
-ssize_t _write(int fd, const void *buf, size_t count);
 
-int _fstat(int fd, struct stat *buf);
+//
+struct linux_dirent {
+	long   d_ino;
+	off_t  d_off;
+	unsigned short d_reclen;
+	char   d_name[];
+};
 
-// pipes/processes
-int _pipe(int pipefd[2]);
-pid_t _fork(void);
-int _kill(pid_t pid, int sig);
-int _dup2(int oldfd, int newfd);
+int itoa(int value, char *sp, int radix);
+// commands
 
-// mmap
-
-void *_mmap(void *addr, size_t length, int prot, int flags, int fd, off_t offset);
-int _munmap(void *addr, size_t length);
-
-// execve
-
-int _execve(const char *pathname, char *const argv[], char *const envp[]);
-
-// sockets
-int _shutdown(int sockfd, int how);
-int _connect(int sockfd, const struct sockaddr *addr, socklen_t addrlen);
-int _socket(int domain, int type, int protocol);
-u_int16_t _htons(u_int16_t x);
-
-// epoll sockets
-
-int _epoll_create1(int flags);
-int _epoll_ctl(int epfd, int op, int fd, struct epoll_event *event);
-int _epoll_wait(int epfd, struct epoll_event *events, int maxevents, int timeout);
+void process_command(data_t *data);
+void uname_command(data_t *data);
+void ls_command(data_t *data, const char *path);

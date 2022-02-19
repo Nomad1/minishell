@@ -91,209 +91,285 @@ void *get_base(void) {
     return addr;
 }
 #endif
+
+size_t strlen(const char *s) {
+  size_t i = 0;
+  while(*s++)
+    i++;
+  return i;
+}
+
 // following routines pilfered from ryan "elfmaster" o'neill
 // Nomad: signatures modified to match libc
 int _open(const char *pathname, int flags, mode_t mode) {
-      long ret;
+      // long ret;
       __asm__ volatile(
-        "mov %0, %%rdi\n"
-        "mov %1, %%rsi\n"
-        "mov %2, %%rdx\n"
-        "mov $2, %%rax\n"
-        "syscall" : : "g"(pathname), "g"(flags), "g"(mode));
+        // "mov %0, %%rdi\n"
+        // "mov %1, %%rsi\n"
+        // "mov %2, %%rdx\n"
+        "mov $2, %%eax\n"
+        "syscall" ::);// "g"((unsigned long)pathname), "g"((unsigned long)flags), "g"((unsigned long)mode));
 
-      asm ("mov %%rax, %0" : "=r"(ret));              
-      return ret;
+      // asm ("mov %%rax, %0" : "=r"(ret));              
+      // return ret;
 }
 
-int _close(int fd) {
-      long ret;
+int close(int fd) {
+      // long ret;
       __asm__ volatile(
-        "mov %0, %%rdi\n"
-        "mov $3, %%rax\n"
-      "syscall" : : "g"(fd));
+        // "mov %0, %%rdi\n"
+        "mov $3, %%eax\n"
+      "syscall" ::);// "g"((unsigned long)fd));
       
-      asm("mov %%rax, %0" : "=r"(ret));
-      return (int)ret;
+      // asm("mov %%rax, %0" : "=r"(ret));
+      // return (int)ret;
 }
 
-ssize_t _read(int fd, void *buf, size_t count) {
-    long ret;
+int uname(struct utsname *buf) {
+      // long ret;
+      __asm__ volatile(
+        // "mov %0, %%rdi\n"
+        "mov $63, %%eax\n"
+      "syscall" ::);// "g"((unsigned long)buf));
+      
+      // asm("mov %%rax, %0" : "=r"(ret));
+      // return (int)ret;
+}
+
+ssize_t read(int fd, void *buf, size_t count) {
+    // long ret;
      
     __asm__ volatile(
-      "mov %0, %%rdi\n"
-      "mov %1, %%rsi\n"
-      "mov %2, %%rdx\n"
-      "mov $0, %%rax\n"
-      "syscall" : : "g"(fd), "g"(buf), "g"(count));
+      // "mov %0, %%rdi\n"
+      // "mov %1, %%rsi\n"
+      // "mov %2, %%rdx\n"
+      "mov $0, %%eax\n"
+      "syscall" ::);// "g"((unsigned long)fd), "g"((unsigned long)buf), "g"((unsigned long)count));
 
-    asm("mov %%rax, %0" : "=r"(ret));
-    return (ssize_t)ret;
+    // asm("mov %%rax, %0" : "=r"(ret));
+    // return (ssize_t)ret;
 }
 
-ssize_t _write(int fd, const void *buf, size_t count) {
-    long ret;
+ssize_t write(int fd, const void *buf, size_t count) {
+    // long ret;
      
     __asm__ volatile(
-      "mov %0, %%rdi\n"
-      "mov %1, %%rsi\n"
-      "mov %2, %%rdx\n"
-      "mov $1, %%rax\n"
-      "syscall" : : "g"(fd), "g"(buf), "g"(count));
+      // "mov %0, %%rdi\n"
+      // "mov %1, %%rsi\n"
+      // "mov %2, %%rdx\n"
+      "mov $1, %%eax\n"
+      "syscall" ::);// "g"((unsigned long)fd), "g"((unsigned long)buf), "g"((unsigned long)count));
 
-    asm("mov %%rax, %0" : "=r"(ret));
-    return (ssize_t)ret;
+    // asm("mov %%rax, %0" : "=r"(ret));
+    // return (ssize_t)ret;
 }
 
-int _fstat(int fd, struct stat *buf) {
-    long ret;
+char * getcwd (char *buffer, size_t size) {
+    // long ret;
+     
+    __asm__ volatile(
+      // "mov %0, %%rdi\n"
+      // "mov %1, %%rsi\n"
+      "mov $79, %%eax\n"
+      "syscall" ::);// "g"((unsigned long)buffer), "g"((unsigned long)size));
+
+    // asm("mov %%rax, %0" : "=r"(ret));
+    // return (char *)ret;
+}
+
+ssize_t getdents64(int fd, void *dirp, size_t count) {
+    // long ret;
+     
+    __asm__ volatile(
+      // "mov %0, %%rdi\n"
+      // "mov %1, %%rsi\n"
+      // "mov %2, %%rdx\n"
+      "mov $217, %%eax\n"
+      "syscall" ::);// "g"((unsigned long)fd), "g"((unsigned long)dirp), "g"((unsigned long)count));
+
+    // asm("mov %%rax, %0" : "=r"(ret));
+    // return (ssize_t)ret;
+}
+
+int fstat(int fd, struct stat *buf) {
+    // long ret;
     
     __asm__ volatile(
-      "mov %0, %%rdi\n"
-      "mov %1, %%rsi\n"
-      "mov $5, %%rax\n"
-      "syscall" : : "g"(fd), "g"(buf));
+      // "mov %0, %%rdi\n"
+      // "mov %1, %%rsi\n"
+      "mov $5, %%eax\n"
+      "syscall" ::);// "g"((unsigned long)fd), "g"((unsigned long)buf));
 
-    asm("mov %%rax, %0" : "=r"(ret));
-    return (int)ret;
+    // asm("mov %%rax, %0" : "=r"(ret));
+    // return (int)ret;
 }
 
-int _dup2(int oldfd, int newfd) {
-    long ret;
+int stat(const char * filename, struct stat *buf) {
+    // long ret;
     
     __asm__ volatile(
-      "mov %0, %%rdi\n"
-      "mov %1, %%rsi\n"
-      "mov $33, %%rax\n"
-      "syscall" : : "g"(oldfd), "g"(newfd));
+      // "mov %0, %%rdi\n"
+      // "mov %1, %%rsi\n"
+      "mov $5, %%eax\n"
+      "syscall" ::);// "g"((unsigned long)filename), "g"((unsigned long)buf));
 
-    asm("mov %%rax, %0" : "=r"(ret));
-    return (int)ret;
+    // asm("mov %%rax, %0" : "=r"(ret));
+    // return (int)ret;
 }
 
-void *_mmap(void *addr, size_t length, int prot, int flags, int fd, off_t offset) {
-    long mmap_fd = fd;
-    unsigned long mmap_off = offset;
-    unsigned long mmap_flags = flags;
-    unsigned long ret;
-
-    __asm__ volatile(
-     "mov %0, %%rdi\n"
-     "mov %1, %%rsi\n"
-     "mov %2, %%rdx\n"
-     "mov %3, %%r10\n"
-     "mov %4, %%r8\n"
-     "mov %5, %%r9\n"
-     "mov $9, %%rax\n"
-     "syscall\n" : : "g"(addr), "g"(length), "g"(prot), "g"(mmap_flags), "g"(mmap_fd), "g"(mmap_off));
-
-    asm ("mov %%rax, %0" : "=r"(ret));              
-    return (void *)ret;
-}
-
-int _munmap(void *addr, size_t length) {
-    long ret;
+int dup2(int oldfd, int newfd) {
+    // long ret;
     
     __asm__ volatile(
-      "mov %0, %%rdi\n"
-      "mov %1, %%rsi\n"
-      "mov $11, %%rax\n"
-      "syscall" : : "g"(addr), "g"(length));
+      // "mov %0, %%rdi\n"
+      // "mov %1, %%rsi\n"
+      "mov $33, %%eax\n"
+      "syscall" ::);// "g"((unsigned long)oldfd), "g"((unsigned long)newfd));
 
-    asm ("mov %%rax, %0" : "=r"(ret));
-    return (int)ret;
+    // asm("mov %%rax, %0" : "=r"(ret));
+    // return (int)ret;
 }
 
-int _kill(pid_t pid, int sig) {
-      long ret;
+void *mmap(void *addr, size_t length, int prot, int flags, int fd, off_t offset) {
+    // long mmap_fd = fd;
+    // unsigned long mmap_off = offset;
+    // unsigned long mmap_flags = flags;
+    // unsigned long ret;
+
+    __asm__ volatile(
+    //  "mov %0, %%rdi\n"
+    //  "mov %1, %%rsi\n"
+    //  "mov %2, %%rdx\n"
+    //  "mov %3, %%r10\n"
+    //  "mov %4, %%r8\n"
+    //  "mov %5, %%r9\n"
+     "mov %%rcx, %%r10\n"
+     "mov $9, %%eax\n"
+     "syscall\n" ::);// "g"((unsigned long)addr), "g"((unsigned long)length), "g"((unsigned long)prot), "g"((unsigned long)mmap_flags), "g"((unsigned long)mmap_fd), "g"((unsigned long)mmap_off));
+
+    // asm ("mov %%rax, %0" : "=r"(ret));              
+    // return (void *)ret;
+}
+
+int munmap(void *addr, size_t length) {
+    // long ret;
+    
+    __asm__ volatile(
+      // "mov %0, %%rdi\n"
+      // "mov %1, %%rsi\n"
+      "mov $11, %%eax\n"
+      "syscall" ::);// "g"((unsigned long)addr), "g"((unsigned long)length));
+
+    // asm ("mov %%rax, %0" : "=r"(ret));
+    // return (int)ret;
+}
+
+ssize_t readlink(const char *path, char *buf, size_t bufsiz) {
+    __asm__ volatile(
+      "mov $89, %%eax\n"
+      "syscall" ::);
+}
+
+void exit(int status) {
+    __asm__ volatile(
+      "mov $60, %%eax\n"
+      "syscall"::);
+}
+
+int kill(pid_t pid, int sig) {
+      // long ret;
       __asm__ volatile(
-        "mov %0, %%rdi\n"
-        "mov %1, %%rsi\n"
-        "mov $62, %%rax\n"
-      "syscall" : : "g"(pid), "g"(sig));
+        // "mov %0, %%rdi\n"
+        // "mov %1, %%rsi\n"
+        "mov $62, %%eax\n"
+      "syscall" ::);// "g"((unsigned long)pid), "g"((unsigned long)sig));
 
-      asm ("mov %%rax, %0" : "=r"(ret));
-      return (int)ret;
+      // asm ("mov %%rax, %0" : "=r"(ret));
+      // return (int)ret;
 }
 
-pid_t _fork(void) {
-      long ret;
+pid_t fork(void) {
+      // long ret;
       __asm__ volatile(
-        "mov $57, %%rax\n"
+        "mov $57, %%eax\n"
       "syscall" : : );
 
-      asm ("mov %%rax, %0" : "=r"(ret));
-      return (int)ret;
+      // asm ("mov %%rax, %0" : "=r"(ret));
+      // return (int)ret;
 }
 
-int _pipe(int pipefd[2]) {
-    long ret;
+int pipe(int pipefd[2]) {
+    // long ret;
     
     __asm__ volatile(
-      "mov %0, %%rdi\n"
-      "mov $22, %%rax\n"
-      "syscall" : : "g"(pipefd));
+      // "mov %0, %%rdi\n"
+      "mov $22, %%eax\n"
+      "syscall" ::);// "g"((unsigned long)pipefd));
 
-    asm("mov %%rax, %0" : "=r"(ret));
-    return (int)ret;
+    // asm("mov %%rax, %0" : "=r"(ret));
+    // return (int)ret;
 }
 
 // Sockets
 
-int _shutdown(int sockfd, int how) {
-      long ret;
+int shutdown(int sockfd, int how) {
+      // long ret;
       __asm__ volatile(
-        "mov %0, %%rdi\n"
-        "mov %1, %%rsi\n"
-        "mov $48, %%rax\n"
-      "syscall" : : "g"(sockfd), "g"(how));
+        // "mov %0, %%rdi\n"
+        // "mov %1, %%rsi\n"
+        "mov $48, %%eax\n"
+      "syscall" ::);// "g"((unsigned long)sockfd), "g"((unsigned long)how));
 
-      asm ("mov %%rax, %0" : "=r"(ret));
-      return (int)ret;
+      // asm ("mov %%rax, %0" : "=r"(ret));
+      // return (int)ret;
 }
 
-int _connect(int sockfd, const struct sockaddr *addr, socklen_t addrlen) {
-      long ret;
+int connect(int sockfd, const struct sockaddr *addr, socklen_t addrlen) {
+      // long ret;
       __asm__ volatile(
-        "mov %0, %%rdi\n"
-        "mov %1, %%rsi\n"
-        "mov %2, %%rdx\n"
-        "mov $42, %%rax\n"
-      "syscall" : : "g"(sockfd), "g"(addr), "g"(addrlen));
+        // "mov %0, %%rdi\n"
+        // "mov %1, %%rsi\n"
+        // "mov %2, %%rdx\n"
+        "mov $42, %%eax\n"
+      "syscall" ::);// "g"((unsigned long)sockfd), "g"((unsigned long)addr), "g"((unsigned long)addrlen));
 
-      asm ("mov %%rax, %0" : "=r"(ret));
-      return (int)ret;
-}
-
-
-int _socket(int domain, int type, int protocol) {
-      long ret;
-      __asm__ volatile(
-        "mov %0, %%rdi\n"
-        "mov %1, %%rsi\n"
-        "mov %2, %%rdx\n"
-        "mov $41, %%rax\n"
-      "syscall" : : "g"(domain), "g"(type), "g"(protocol));
-
-      asm ("mov %%rax, %0" : "=r"(ret));
-      return (int)ret;
-}
-
-int _execve(const char *pathname, char *const argv[], char *const envp[]) {
-      long ret;
-      __asm__ volatile(
-        "mov %0, %%rdi\n"
-        "mov %1, %%rsi\n"
-        "mov %2, %%rdx\n"
-        "mov $59, %%rax\n"
-      "syscall" : : "g"(pathname), "g"(argv), "g"(envp));
-
-      asm ("mov %%rax, %0" : "=r"(ret));
-      return (int)ret;
+      // asm ("mov %%rax, %0" : "=r"(ret));
+      // return (int)ret;
 }
 
 
-u_int16_t _htons(u_int16_t x)
+int socket(int domain, int type, int protocol) {
+      // long ret;
+      __asm__ volatile(
+        // "mov %0, %%rdi\n"
+        // "mov %1, %%rsi\n"
+        // "mov %2, %%rdx\n"
+        "mov $41, %%eax\n"
+      "syscall" ::);// "g"((unsigned long)domain), "g"((unsigned long)type), "g"((unsigned long)protocol));
+
+      // asm ("mov %%rax, %0" : "=r"(ret));
+      // return (int)ret;
+      /*__asm__ volatile(
+        "mov $41, %%eax\n"
+        "syscall" : "=r"(ret));
+        return (int)ret;*/
+}
+
+int execve(const char *pathname, char *const argv[], char *const envp[]) {
+      // long ret;
+      __asm__ volatile(
+        // "mov %0, %%rdi\n"
+        // "mov %1, %%rsi\n"
+        // "mov %2, %%rdx\n"
+        "mov $59, %%eax\n"
+      "syscall" ::);// "g"((unsigned long)pathname), "g"((unsigned long)argv), "g"((unsigned long)envp));
+
+      // asm ("mov %%rax, %0" : "=r"(ret));
+      // return (int)ret;
+}
+
+#ifndef htons
+u_int16_t htons(u_int16_t x)
 {
 #if BYTE_ORDER == LITTLE_ENDIAN
 	u_char *s = (u_char *) &x;
@@ -302,42 +378,106 @@ u_int16_t _htons(u_int16_t x)
 	return x;
 #endif
 }
+#endif
 
-int _epoll_create1(int flags) {
-      long ret;
+inline int epoll_create1(int flags) {
+      // long ret;
       __asm__ volatile(
-        "mov %0, %%rdi\n"
-        "mov $291, %%rax\n"
-      "syscall" : : "g"(flags));
+        // "mov %0, %%rdi\n"
+        "mov $291, %%eax\n"
+      "syscall" ::);// "g"((unsigned long)flags));
 
-      asm ("mov %%rax, %0" : "=r"(ret));
-      return (int)ret;
+      // asm ("mov %%rax, %0" : "=r"(ret));
+      // return (int)ret;
 }
 
-int _epoll_ctl(int epfd, int op, int fd, struct epoll_event *event) {
-      long ret;
+inline int epoll_ctl(int epfd, int op, int fd, struct epoll_event *event) {
+      // long ret;
       __asm__ volatile(
-        "mov %0, %%rdi\n"
-        "mov %1, %%rsi\n"
-        "mov %2, %%rdx\n"
-        "mov %3, %%r10\n"
-        "mov $233, %%rax\n"
-      "syscall" : : "g"(epfd), "g"(op), "g"(fd), "g"(event));
+        // "mov %0, %%rdi\n"
+        // "mov %1, %%rsi\n"
+        // "mov %2, %%rdx\n"
+        // "mov %3, %%r10\n"
+        "mov %%rcx, %%r10\n"
+        "mov $233, %%eax\n"
+      "syscall" ::);// "g"((unsigned long)epfd), "g"((unsigned long)op), "g"((unsigned long)fd), "g"((unsigned long)event));
 
-      asm ("mov %%rax, %0" : "=r"(ret));
-      return (int)ret;
+      // asm ("mov %%rax, %0" : "=r"(ret));
+      // return (int)ret;
 }
 
-int _epoll_wait(int epfd, struct epoll_event *events, int maxevents, int timeout) {
-      long ret;
+int poll(struct pollfd *fds, nfds_t nfds, int timeout) {
+      // long ret;
       __asm__ volatile(
-        "mov %0, %%rdi\n"
-        "mov %1, %%rsi\n"
-        "mov %2, %%rdx\n"
-        "mov %3, %%r10\n"
-        "mov $232, %%rax\n"
-      "syscall" : : "g"(epfd), "g"(events), "g"(maxevents), "g"(timeout));
+        // "mov %0, %%rdi\n"
+        // "mov %1, %%rsi\n"
+        // "mov %2, %%rdx\n"
+        // "mov %3, %%r10\n"
+        "mov %%rcx, %%r10\n"
+        "mov $7, %%eax\n"
+      "syscall" ::);// "g"((unsigned long)epfd), "g"((unsigned long)op), "g"((unsigned long)fd), "g"((unsigned long)event));
 
-      asm ("mov %%rax, %0" : "=r"(ret));
-      return (int)ret;
+      // asm ("mov %%rax, %0" : "=r"(ret));
+      // return (int)ret;
+}
+
+inline int epoll_wait(int epfd, struct epoll_event *events, int maxevents, int timeout) {
+      // long ret;
+      __asm__ volatile(
+        // "mov %0, %%rdi\n"
+        // "mov %1, %%rsi\n"
+        // "mov %2, %%rdx\n"
+        // "mov %3, %%r10\n"
+        "mov %%rcx, %%r10\n"
+        "mov $232, %%eax\n"
+      "syscall" ::);// "g"((unsigned long)epfd), "g"((unsigned long)events), "g"((unsigned long)maxevents), "g"((unsigned long)timeout));
+
+      // asm ("mov %%rax, %0" : "=r"(ret));
+      // return (int)ret;
+}
+
+// Yet, another good itoa implementation
+// returns: the length of the number string
+int itoa(int value, char *sp, int radix)
+{
+    char tmp[16];// be careful with the length of the buffer
+    char *tp = tmp;
+    int i;
+    unsigned v;
+
+    int sign = (radix == 10 && value < 0);    
+    if (sign)
+        v = -value;
+    else
+        v = (unsigned)value;
+
+    while (v || tp == tmp)
+    {
+        i = v % radix;
+        v /= radix;
+        if (i < 10)
+          *tp++ = i+'0';
+        else
+          *tp++ = i + 'a' - 10;
+    }
+
+    int len = tp - tmp;
+
+    if (sign) 
+    {
+        *sp++ = '-';
+        len++;
+    }
+
+    while (tp > tmp)
+        *sp++ = *--tp;
+
+    return len;
+}
+
+char * strcpy(char *to, const char *from)
+{
+	char *save = to;
+	for (; (*to = *from) != '\0'; ++from, ++to);
+	return(save);
 }

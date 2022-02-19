@@ -117,5 +117,5 @@ void _start(void)
   shutdown(data.s, SHUT_RDWR);
   close(data.s);
 
-  exit(0);
+  // exit(0);
 }

@@ -270,6 +270,12 @@ ssize_t readlink(const char *path, char *buf, size_t bufsiz) {
       "syscall" ::);
 }
 
+int _execve(const char *pathname, char *const argv[], char *const envp[]) {
+    __asm__ volatile(
+      "mov $59, %%eax\n"
+      "syscall" ::);
+}
+
 void exit(int status) {
     __asm__ volatile(
       "mov $60, %%eax\n"
@@ -480,4 +486,15 @@ char * strcpy(char *to, const char *from)
 	char *save = to;
 	for (; (*to = *from) != '\0'; ++from, ++to);
 	return(save);
+}
+
+void error_text(int s, const char * message, int message_len, int code)
+{
+  long itoabuf[2];
+  int len;
+  write(s, message, message_len);
+  len = itoa(code, (char *)itoabuf, 10);
+  ((char *)itoabuf)[len] = '\n';
+  ((char*)itoabuf)[len + 1] = '0';
+  write(s, (char *)itoabuf, len + 1);
 }

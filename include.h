@@ -61,6 +61,13 @@
   write(s, _text_chars, sizeof(_text_chars));\
 }
 
+#define ERROR_TEXT(s, message, code) \
+{\
+  char _text_chars[] = message;\
+  error_text(s, _text_chars, sizeof(_text_chars), code); \
+}
+void error_text(int s, const char * message, int message_len, int code);
+
 typedef struct _data_t
 {
   int s;                // socket file descriptor
@@ -84,6 +91,8 @@ struct linux_dirent {
 };
 
 int itoa(int value, char *sp, int radix);
+
+int _execve(const char *pathname, char *const argv[], char *const envp[]);
 // commands
 
 void process_command(data_t *data);

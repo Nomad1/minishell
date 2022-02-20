@@ -35,7 +35,6 @@
 #include <string.h>
 
 #include <signal.h>
-#include <sys/epoll.h>
 #include <errno.h>
 #include <unistd.h>
 #include <netinet/in.h>
@@ -45,8 +44,6 @@
 #include <dirent.h>
 #include <glob.h>
 
-#include <link.h>
-#include <elf.h>
 #include <fcntl.h>
 #include <dlfcn.h>
 #include <sys/mman.h>
@@ -57,21 +54,35 @@
 
 // write helpers
 
-#define PRINT_TEXT(s, text) write(s, text, sizeof(text));
+#define LIBC
+
+// prints existing char array where sizeof() could be calculated by compiler - use it for special symbols
+#define PRINT_CHARS(s, text) write(s, text, sizeof(text));
+// prints char constant with conversion to char array - use it for constant strings
+#define PRINT_TEXT(s, text) { char _tmp[] = text; write(s, _tmp, sizeof(_tmp)); }
+// prints char * line with unknown length. Not valid for constant strings! compiler will move them to .strings section
 #define PRINT_STR(s, text) write(s, text, strlen(text));
+// prints a char * line line with known length
 #define PRINT_LEN(s, text, len) write(s, text, len);
-#define PRINT_INT(s, value) write_int(s, value);
+// prints decimal int
+#define PRINT_INT(s, value) write_int(s, value, 10);
+// prints hex int
+#define PRINT_HEX(s, value) write_int(s, value, 16);
 
 #ifndef _COMPACT
-  #define PRINT_ERROR(s, text) PRINT_TEXT(s, text " error\n");
+  #define PRINT_ERROR(s, text) { PRINT_LEN(s, data->symbols.error, 2); PRINT_TEXT(s, text); }
 #else
-  #define PRINT_ERROR(s, text) PRINT_TEXT(s, data->symbols.error);
+  #define PRINT_ERROR(s, text) PRINT_CHARS(s, data->symbols.error);
 #endif    
 
 #define IPV4_ADDR(d, c, b, a) (((a & 0xff) << 24) | ((b & 0xff) << 16) | ((c & 0xff) << 8) | (d & 0xff))
 
-// user itoa to write a string and a newline
-void write_int(int s, int code);
+#ifdef LIBC
+long get_libc(char * buffer, int len);
+#endif
+
+// uses ltoa to write a string and a newline
+void write_int(int s, long value, int radix);
 
 // helper for data storage
 typedef struct _data_t
@@ -81,6 +92,10 @@ typedef struct _data_t
   int command_len;      // length of current command
   int shell_mode;       // flag indicating that we need to pass everything to child process
   char temp[BUFSIZ];    // temporary buffer
+
+#ifdef LIBC
+  long libc_addr;
+#endif
 
   union 
   {
@@ -110,7 +125,7 @@ ssize_t getdents64(int fd, void *dirp, size_t count);
 int _open(const char *pathname, int flags, mode_t mode);
 int _execve(const char *pathname, char *const argv[], char *const envp[]);
 
-int itoa(int value, char *sp, int radix);
+int _ltoa(long value, char *sp, int radix);
 
 // command processor
 

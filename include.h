@@ -54,8 +54,6 @@
 
 // write helpers
 
-#define LIBC
-
 // prints existing char array where sizeof() could be calculated by compiler - use it for special symbols
 #define PRINT_CHARS(s, text) write(s, text, sizeof(text));
 // prints char constant with conversion to char array - use it for constant strings
@@ -70,7 +68,7 @@
 #define PRINT_HEX(s, value) write_int(s, value, 16);
 
 #ifndef _COMPACT
-  #define PRINT_ERROR(s, text) { PRINT_LEN(s, data->symbols.error, 2); PRINT_TEXT(s, text); }
+  #define PRINT_ERROR(s, text) { PRINT_LEN(s, data->symbols.error, 2); PRINT_TEXT(s, text); PRINT_LEN(s, data->symbols.newline, 1);}
 #else
   #define PRINT_ERROR(s, text) PRINT_CHARS(s, data->symbols.error);
 #endif    
@@ -124,7 +122,7 @@ struct linux_dirent {
 ssize_t getdents64(int fd, void *dirp, size_t count);
 int _open(const char *pathname, int flags, mode_t mode);
 int _execve(const char *pathname, char *const argv[], char *const envp[]);
-
+int _fstat(int fd, struct stat *buf);
 int _ltoa(long value, char *sp, int radix);
 
 // command processor

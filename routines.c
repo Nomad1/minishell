@@ -262,7 +262,7 @@ ssize_t getdents64(int fd, void *dirp, size_t count)
   // return (ssize_t)ret;
 }
 
-int fstat(int fd, struct stat *buf)
+int _fstat(int fd, struct stat *buf)
 {
   // long ret;
 

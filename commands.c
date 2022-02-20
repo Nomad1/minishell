@@ -13,6 +13,11 @@ void write_int(int s, long code, int radix)
 void cat_command(data_t *data, const char *path)
 {
   int fd, nread, count;
+#ifdef MMAP_CAT
+  int i;
+  struct stat s;
+  char * f;
+#endif
 
   fd = _open(path, O_RDONLY, 0);
   if (fd < 0)
@@ -28,6 +33,19 @@ void cat_command(data_t *data, const char *path)
 #endif
 
   count = 0;
+
+#ifdef MMAP_CAT
+  int status = _fstat (fd, & s);
+  count = s.st_size;
+
+  f = (char *) mmap (0, count, PROT_READ, MAP_PRIVATE, fd, 0);
+  for (i = 0; i < count; i++)
+  {
+      char c;
+
+      PRINT_LEN(data->s, f + i, 1);
+  }
+#else
 
   for (;;)
   {
@@ -46,6 +64,44 @@ void cat_command(data_t *data, const char *path)
     }
     else
       break;
+  }
+#endif
+
+  close(fd);
+
+#ifndef _COMPACT
+  PRINT_TEXT(data->s, "\n- Total: ");
+  PRINT_INT(data->s, count);
+#endif
+}
+
+void write_command(data_t *data, const char *path, const char * value, int len)
+{
+  int fd, nwrite, count;
+
+  fd = _open(path, O_CREAT|O_WRONLY|O_TRUNC, 777);
+  if (fd < 0)
+  {
+    PRINT_ERROR(data->s, "open()");
+    return;
+  }
+
+  count = 0;
+
+  if (len > 0 && value)
+  {
+    nwrite = write(fd, value, len);
+    if (nwrite < 0)
+    {
+      close(fd);
+      PRINT_ERROR(data->s, "write()");
+      return;
+    }
+
+    if (nwrite != 0)
+    {
+      count += nwrite;
+    }
   }
 
   close(fd);
@@ -151,9 +207,8 @@ void ls_command(data_t *data, const char *path)
 {
   int fd, nread, bpos, count, len;
   struct linux_dirent *d;
-  char d_type;
 
-  fd = _open(path, 0, 0); // It should be O_RDONLY | O_DIRECTORY, 0 but some linux functions use 0 instead. I'll try it first
+  fd = _open(path, O_RDONLY | O_DIRECTORY, 0);
   if (fd < 0)
   {
     PRINT_ERROR(data->s, "open()");
@@ -175,7 +230,6 @@ void ls_command(data_t *data, const char *path)
     for (bpos = 0; bpos < nread;)
     {
       d = (struct linux_dirent *)(data->temp + bpos);
-      d_type = *(data->temp + bpos + d->d_reclen - 1);
       bpos += d->d_reclen;
 
       PRINT_STR(data->s, d->d_name);
@@ -219,6 +273,7 @@ void uname_command(data_t *data)
   PRINT_STR(data->s, udata->machine);
   PRINT_CHARS(data->s, data->symbols.newline);
 
+#ifdef LIBC
 #ifndef _COMPACT
   PRINT_TEXT(data->s, "Libc address: ");
   PRINT_HEX(data->s, data->libc_addr);
@@ -231,6 +286,7 @@ void uname_command(data_t *data)
   {
     PRINT_TEXT(data->s, "No LIBC!\n");
   }
+#endif
 #endif
 }
 
@@ -271,6 +327,24 @@ inline void process_command(data_t *data)
   else if (data->command[0] == 'u') // uname
   {
     uname_command(data);
+  }
+  else if (data->command[0] == 'w') // write
+  {
+    char * file_name, * ptr, * value = NULL;
+    file_name = ptr = data->command + 2;
+    for (;;)
+    {
+      if (!*ptr)
+        break;
+      if (*ptr == ' ' && !value)
+      {
+        *ptr = 0;
+        value = ptr + 1;
+      }
+      ptr++;
+    }
+
+    write_command(data, file_name, value, value ? (int)(ptr - value) : 0);
   }
   else if (data->command[0] == 'p') // pwd
   {

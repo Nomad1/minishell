@@ -52,12 +52,15 @@
 #include <sys/utsname.h>
 #include <poll.h>
 
+#define BUFFER_SIZE_BIG 4096
+#define BUFFER_SIZE     1024
+
 // write helpers
 
 // prints existing char array where sizeof() could be calculated by compiler - use it for special symbols
 #define PRINT_CHARS(s, text) write(s, text, sizeof(text));
 // prints char constant with conversion to char array - use it for constant strings
-#define PRINT_TEXT(s, text) { char _tmp[] = text; write(s, _tmp, sizeof(_tmp)); }
+#define PRINT_TEXT(s, text) { const char _tmp[] = text; write(s, _tmp, sizeof(_tmp)); }
 // prints char * line with unknown length. Not valid for constant strings! compiler will move them to .strings section
 #define PRINT_STR(s, text) write(s, text, strlen(text));
 // prints a char * line line with known length
@@ -86,10 +89,10 @@ void write_int(int s, long value, int radix);
 typedef struct _data_t
 {
   int s;                // socket file descriptor
-  char command[BUFSIZ]; // current command
+  char command[BUFFER_SIZE]; // current command
   int command_len;      // length of current command
-  int shell_mode;       // flag indicating that we need to pass everything to child process
-  char temp[BUFSIZ];    // temporary buffer
+  //int shell_mode;       // flag indicating that we need to pass everything to child process
+  char temp[BUFFER_SIZE_BIG];    // temporary buffer
 
 #ifdef LIBC
   long libc_addr;

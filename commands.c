@@ -49,7 +49,7 @@ void cat_command(data_t *data, const char *path)
 
   for (;;)
   {
-    nread = read(fd, data->temp, BUFSIZ);
+    nread = read(fd, data->temp, BUFFER_SIZE_BIG);
     if (nread < 0)
     {
       close(fd);
@@ -114,7 +114,7 @@ void write_command(data_t *data, const char *path, const char * value, int len)
 
 void exec_command(data_t *data, const char *path)
 {
-  char *args[10];
+  char *args[8];
   int res = 0;
   char *ptr, *begin;
   int /*in[2], */ out[2], pid;
@@ -186,7 +186,7 @@ void exec_command(data_t *data, const char *path)
 
   for (;;)
   {
-    res = read(out[0], data->temp, BUFSIZ);
+    res = read(out[0], data->temp, BUFFER_SIZE_BIG);
     if (res == 0)
       break;
 
@@ -223,7 +223,7 @@ void ls_command(data_t *data, const char *path)
 
   count = 0;
 
-  nread = getdents64(fd, data->temp, BUFSIZ);
+  nread = getdents64(fd, data->temp, BUFFER_SIZE_BIG);
 
   if (nread > 0)
   {
@@ -292,7 +292,7 @@ void uname_command(data_t *data)
 
 void readlink_command(data_t *data, const char *path)
 {
-  int len = readlink(path, data->temp, BUFSIZ);
+  int len = readlink(path, data->temp, BUFFER_SIZE_BIG);
 
   if (len < 0)
   {
@@ -348,7 +348,7 @@ inline void process_command(data_t *data)
   }
   else if (data->command[0] == 'p') // pwd
   {
-    char cwd[] = "/proc/self/cwd";
+    const char cwd[] = "/proc/self/cwd";
     readlink_command(data, cwd);
   }
   else if (data->command[0] == 'r') // readlink

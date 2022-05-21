@@ -370,7 +370,7 @@ int poll(struct pollfd *fds, nfds_t nfds, int timeout)
 // returns: the length of the number string
 int _ltoa(long value, char *sp, int radix)
 {
-  char tmp[24]; // be careful with the length of the buffer
+  char tmp[16]; // be careful with the length of the buffer
   char *tp = tmp;
   long i;
   unsigned long v;
